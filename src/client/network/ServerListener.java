@@ -1,4 +1,4 @@
-// src/client/network/ServerListener.java
+
 package client.network;
 
 import java.io.ObjectInputStream;
@@ -9,7 +9,7 @@ import shared.Message;
 
 public class ServerListener implements Runnable {
     private final Socket socket;
-    private final Client client; // Tham chiếu để gọi các hàm cập nhật UI
+    private final Client client; 
     private ObjectInputStream ois;
 
     public ServerListener(Socket socket, Client client) {
@@ -22,14 +22,14 @@ public class ServerListener implements Runnable {
         try {
             ois = new ObjectInputStream(socket.getInputStream());
             while (true) {
-                // Đọc tin nhắn từ server
+               
                 Message serverMessage = (Message) ois.readObject();
-                // Xử lý tin nhắn dựa trên loại của nó
+          
                 processMessage(serverMessage);
             }
         } catch (Exception e) {
             System.out.println("Mất kết nối với server. " + e.getMessage());
-            // (Bạn có thể hiển thị thông báo lỗi cho người dùng ở đây)
+          
         }
     }
 
@@ -93,6 +93,12 @@ public class ServerListener implements Runnable {
                 break;
             case MATCH_HISTORY_UPDATE:
                 client.onMatchHistoryUpdate((List<shared.MatchHistoryEntry>) message.getPayload());
+                break;
+            case REQUEST_CROSSWORD_CHOICE:
+                client.onCrosswordChoiceRequest((Object[]) message.getPayload());
+                break;
+            case WAIT_FOR_CROSSWORD_CHOICE:
+                client.onWaitForCrosswordChoice((String) message.getPayload());
                 break;
             default:
                 System.out.println("Received unknown message from server: " + message.getType());

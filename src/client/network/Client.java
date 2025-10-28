@@ -7,6 +7,7 @@ import client.gui.LoginWindow;
 import client.gui.LobbyWindow;
 import shared.Message;
 import client.audio.SoundManager;
+import shared.CrosswordInfo;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
@@ -217,6 +218,43 @@ public class Client {
         SwingUtilities.invokeLater(() -> {
             if (matchHistoryWindow != null) {
                 matchHistoryWindow.updateHistory(history);
+            }
+        });
+    }
+
+    public void onCrosswordChoiceRequest(Object[] payload) {
+        SwingUtilities.invokeLater(() -> {
+            List<CrosswordInfo> availableCrosswords = (List<CrosswordInfo>) payload[0];
+            String opponentUsername = (String) payload[1];
+
+            // Hiển thị hộp thoại lựa chọn
+            CrosswordInfo selected = (CrosswordInfo) JOptionPane.showInputDialog(
+                lobbyWindow,
+                "Bạn đã thắng tung đồng xu! Hãy chọn một bộ câu hỏi:",
+                "Chọn bộ câu hỏi",
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                availableCrosswords.toArray(),
+                availableCrosswords.get(0)
+            );
+
+            if (selected != null) {
+                // Gửi lựa chọn về server
+                sendMessage(new Message(Message.MessageType.SUBMIT_CROSSWORD_CHOICE, new Object[]{selected.getId(), opponentUsername}));
+                // Hiển thị thông báo chờ
+                lobbyWindow.showWaitingDialog("Đã chọn bộ " + selected.getId() + ". Đang bắt đầu trận đấu...");
+            } else {
+                // Người chơi đóng hộp thoại -> coi như từ chối trận đấu
+                // Gửi một lựa chọn không hợp lệ để server xử lý việc hủy trận
+                sendMessage(new Message(Message.MessageType.SUBMIT_CROSSWORD_CHOICE, new Object[]{-1, opponentUsername}));
+            }
+        });
+    }
+
+    public void onWaitForCrosswordChoice(String chooserUsername) {
+        SwingUtilities.invokeLater(() -> {
+            if (lobbyWindow != null) {
+                lobbyWindow.showWaitingDialog("Đối thủ " + chooserUsername + " đang chọn bộ câu hỏi. Vui lòng chờ...");
             }
         });
     }

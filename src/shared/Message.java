@@ -1,13 +1,8 @@
-// src/shared/Message.java
+
 package shared;
 
 import java.io.Serializable;
-import java.util.List;
 
-/**
- * Lớp này định nghĩa cấu trúc tin nhắn được gửi giữa Server và Client.
- * Nó phải implement Serializable để có thể được gửi qua ObjectOutputStream.
- */
 public class Message implements Serializable {
     // serialVersionUID cần thiết cho Serializable
     private static final long serialVersionUID = 1L;
@@ -40,9 +35,10 @@ public class Message implements Serializable {
         REQUEST_LEADERBOARD, // Client yêu cầu bảng xếp hạng
         REQUEST_MATCH_HISTORY, // Client yêu cầu lịch sử đấu
         REGISTER_REQUEST,   // Client yêu cầu đăng ký, payload là String[] {username, password}
+        SUBMIT_CROSSWORD_CHOICE, // Client gửi ID bộ ô chữ đã chọn, payload là Integer
         
         // Server -> Client
-        LOGIN_SUCCESS,      // Đăng nhập thành công, payload là username
+        LOGIN_SUCCESS,     
         LOGIN_FAILURE,      // Đăng nhập thất bại, payload là String (lý do)
         USER_LIST_UPDATE,   // Cập nhật danh sách người dùng, payload là List<String>
         CHALLENGE_RECEIVED, // Nhận được lời mời, payload là username người mời
@@ -54,6 +50,8 @@ public class Message implements Serializable {
         LEADERBOARD_UPDATE, // Gửi dữ liệu bảng xếp hạng, payload là List<PlayerStats>
         MATCH_HISTORY_UPDATE, // Gửi dữ liệu lịch sử đấu, payload là List<MatchHistoryEntry>
         REGISTER_SUCCESS,   // Đăng ký thành công
-        REGISTER_FAILURE,   // Đăng ký thất bại, payload là String (lý do)
+        REGISTER_FAILURE,   // Đăng ký thất bại, payload là String (lý do),
+        REQUEST_CROSSWORD_CHOICE, // Yêu cầu client chọn bộ ô chữ, payload là List<CrosswordInfo>
+        WAIT_FOR_CROSSWORD_CHOICE, // Yêu cầu client chờ người kia chọn, payload là String (tên người chọn)
     }
 }

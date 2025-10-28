@@ -20,12 +20,12 @@ public class GameSession implements Runnable {
     private int player2Score = 0;
     private boolean gameEnded = false; // Cờ để đảm bảo game chỉ kết thúc một lần
 
-    public GameSession(ClientHandler player1, ClientHandler player2, DatabaseManager dbManager) {
+    public GameSession(ClientHandler player1, ClientHandler player2, DatabaseManager dbManager, int crosswordId) {
         this.player1 = player1;
         this.player2 = player2;
         this.dbManager = dbManager;
-        // Lấy một ô chữ ngẫu nhiên từ CSDL khi phiên game được tạo
-        this.crossword = this.dbManager.getRandomCrossword();
+        // Lấy bộ ô chữ cụ thể từ CSDL dựa trên lựa chọn của người chơi
+        this.crossword = this.dbManager.getCrosswordById(crosswordId);
     }
 
     @Override

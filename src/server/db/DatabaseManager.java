@@ -12,6 +12,7 @@ import java.util.List;
 import server.game.Crossword;
 import server.game.Question;
 import shared.MatchHistoryEntry;
+import shared.CrosswordInfo;
 import shared.PlayerStats;
 
 /**
@@ -46,8 +47,8 @@ public class DatabaseManager {
 
     /**
      * Tạo và trả về một đối tượng Connection mới tới SQL Server.
-     * @return Connection object hoặc null nếu thất bại.
-     * @throws SQLException
+     * @return Một đối tượng {@link Connection} đã được thiết lập.
+     * @throws SQLException nếu không thể thiết lập kết nối.
      */
     private Connection connect() throws SQLException {
         return DriverManager.getConnection(CONNECTION_STRING, DB_USER, DB_PASSWORD);
@@ -83,19 +84,19 @@ public class DatabaseManager {
     }
     
     /**
-     * Lấy một bộ ô chữ ngẫu nhiên từ cơ sở dữ liệu.
+     * Lấy một bộ ô chữ cụ thể từ cơ sở dữ liệu bằng ID.
+     * @param crosswordId ID của bộ ô chữ cần lấy.
      * @return một đối tượng Crossword hoặc null nếu có lỗi.
      */
-    public Crossword getRandomCrossword() {
-        String sql = "SELECT TOP 1 CrosswordID, Theme FROM Crosswords ORDER BY NEWID()";
+    public Crossword getCrosswordById(int crosswordId) {
+        String sql = "SELECT CrosswordID, Theme, GridWidth, GridHeight FROM Crosswords WHERE CrosswordID = ?";
         String questionSql = "SELECT QuestionID, QuestionText, Answer, PositionRow, PositionCol, Direction FROM Questions WHERE CrosswordID = ?";
 
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
+            pstmt.setInt(1, crosswordId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
-                    int crosswordId = rs.getInt("CrosswordID");
                     List<Question> questions = new ArrayList<>();
 
                     try (PreparedStatement qStmt = conn.prepareStatement(questionSql)) {
@@ -106,16 +107,17 @@ public class DatabaseManager {
                                     qRs.getInt("QuestionID"),
                                     qRs.getString("QuestionText"),
                                     qRs.getString("Answer"),
-                                    qRs.getInt("PositionRow"),
-                                    qRs.getInt("PositionCol"),
+                                    // Chuyển đổi từ tọa độ 1-based (DB) sang 0-based (Java)
+                                    qRs.getInt("PositionRow") - 1,
+                                    qRs.getInt("PositionCol") - 1,
                                     qRs.getString("Direction").charAt(0)
                                 ));
                             }
                         }
                     }
-                    // Giả sử kích thước lưới là 10x10 cho đơn giản
-                    // Trong thực tế, bạn có thể lưu kích thước này trong bảng Crosswords
-                    return new Crossword(10, 10, new char[10][10], questions);
+                    int width = rs.getInt("GridWidth");
+                    int height = rs.getInt("GridHeight");
+                    return new Crossword(width, height, new char[height][width], questions);
                 }
             }
         } catch (SQLException e) {
@@ -123,6 +125,31 @@ public class DatabaseManager {
             e.printStackTrace();
         }
         return null;
+    }
+
+    /**
+     * Lấy danh sách các bộ ô chữ có sẵn (ID và chủ đề).
+     * @return Danh sách các CrosswordInfo.
+     */
+    public List<CrosswordInfo> getAvailableCrosswords() {
+        List<CrosswordInfo> availableCrosswords = new ArrayList<>();
+        String sql = "SELECT CrosswordID, Theme FROM Crosswords";
+
+        try (Connection conn = connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+
+            while (rs.next()) {
+                availableCrosswords.add(new CrosswordInfo(
+                    rs.getInt("CrosswordID"),
+                    rs.getString("Theme")
+                ));
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi khi lấy danh sách bộ ô chữ: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return availableCrosswords;
     }
 
     /**

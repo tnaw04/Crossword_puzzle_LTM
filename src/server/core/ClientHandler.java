@@ -8,6 +8,7 @@ import java.net.Socket;
 
 import server.db.DatabaseManager;
 import server.game.GameSession;
+import shared.CrosswordInfo;
 import shared.Message;
 
 public class ClientHandler implements Runnable {
@@ -84,6 +85,9 @@ public class ClientHandler implements Runnable {
             case REQUEST_MATCH_HISTORY:
                 handleMatchHistoryRequest();
                 break;
+            case SUBMIT_CROSSWORD_CHOICE:
+                handleCrosswordChoice((Object[]) message.getPayload());
+                break;
             // Thêm các case khác ở đây (ví dụ: CHALLENGE_REQUEST, SUBMIT_ANSWER...)
             default:
                 System.out.println("Received unknown message type: " + message.getType());
@@ -112,16 +116,45 @@ public class ClientHandler implements Runnable {
 
         if ("ACCEPT".equals(response)) {
             System.out.println("SERVER: " + this.username + " accepted challenge from " + challengerUsername);
-            // Tạo một phiên game mới cho 2 người chơi
-            GameSession gameSession = new GameSession(challengerHandler, this, dbManager);
-            challengerHandler.setGameSession(gameSession);
-            this.setGameSession(gameSession);
-            new Thread(gameSession).start();
+            // Tung đồng xu để quyết định ai chọn bộ câu hỏi
+            ClientHandler chooser = (Math.random() < 0.5) ? this : challengerHandler;
+            ClientHandler waiter = (chooser == this) ? challengerHandler : this;
+
+            // Lấy danh sách các bộ câu hỏi từ DB
+            var availableCrosswords = dbManager.getAvailableCrosswords();
+
+            if (availableCrosswords == null || availableCrosswords.isEmpty()) {
+                // Xử lý lỗi nếu không có bộ câu hỏi nào
+                sendMessage(new Message(Message.MessageType.LOGIN_FAILURE, "Lỗi: Không tìm thấy bộ câu hỏi nào."));
+                challengerHandler.sendMessage(new Message(Message.MessageType.LOGIN_FAILURE, "Lỗi: Không tìm thấy bộ câu hỏi nào."));
+                return;
+            }
+
+            // Gửi yêu cầu chọn cho người được chọn và yêu cầu chờ cho người còn lại
+            chooser.sendMessage(new Message(Message.MessageType.REQUEST_CROSSWORD_CHOICE, new Object[]{availableCrosswords, waiter.getUsername()}));
+            waiter.sendMessage(new Message(Message.MessageType.WAIT_FOR_CROSSWORD_CHOICE, chooser.getUsername()));
         } else {
             System.out.println("SERVER: " + this.username + " declined challenge from " + challengerUsername);
             // Gửi thông báo từ chối cho người đã mời
             challengerHandler.sendMessage(new Message(Message.MessageType.CHALLENGE_DECLINED, this.username));
         }
+    }
+
+    private void handleCrosswordChoice(Object[] payload) {
+        int chosenCrosswordId = (Integer) payload[0];
+        String opponentUsername = (String) payload[1];
+
+        ClientHandler opponentHandler = server.getClientHandler(opponentUsername);
+        if (opponentHandler == null) {
+            sendMessage(new Message(Message.MessageType.LOGIN_FAILURE, "Đối thủ đã thoát."));
+            return;
+        }
+
+        // Tạo GameSession với bộ câu hỏi đã chọn và bắt đầu game
+        GameSession gameSession = new GameSession(this, opponentHandler, dbManager, chosenCrosswordId);
+        this.setGameSession(gameSession);
+        opponentHandler.setGameSession(gameSession);
+        new Thread(gameSession).start();
     }
 
     private void handleAnswerSubmission(Object[] payload) {

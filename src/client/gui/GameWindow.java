@@ -143,10 +143,19 @@ public class GameWindow extends JFrame {
             int r = q.getRow();
             int c = q.getCol();
             for (int i = 0; i < q.getAnswer().length(); i++) {
+                // Kiểm tra xem ô chữ có nằm trong giới hạn của lưới không
                 if (q.getDirection() == 'H') { // Ngang
-                    isLetterCell[r][c + i] = true;
+                    if (r >= 0 && r < rows && c + i >= 0 && c + i < cols) {
+                        isLetterCell[r][c + i] = true;
+                    } else {
+                        System.err.println("CẢNH BÁO: Câu hỏi ngang " + q.getId() + " vượt ra ngoài giới hạn lưới tại (" + r + "," + (c + i) + ")");
+                    }
                 } else { // Dọc
-                    isLetterCell[r + i][c] = true;
+                    if (r + i >= 0 && r + i < rows && c >= 0 && c < cols) {
+                        isLetterCell[r + i][c] = true;
+                    } else {
+                        System.err.println("CẢNH BÁO: Câu hỏi dọc " + q.getId() + " vượt ra ngoài giới hạn lưới tại (" + (r + i) + "," + c + ")");
+                    }
                 }
             }
         }

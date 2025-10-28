@@ -15,6 +15,7 @@ public class LobbyWindow extends JFrame {
     private final DefaultListModel<String> userListModel;
     private final JList<String> userJList;
     private final DefaultTableModel leaderboardTableModel;
+    private JDialog waitingDialog;
 
     public LobbyWindow(Client client) {
         this.client = client;
@@ -108,5 +109,22 @@ public class LobbyWindow extends JFrame {
             leaderboardTableModel.addRow(new Object[]{rank, stat.getUsername(), stat.getTotalScore(), stat.getWins()});
             rank++;
         }
+    }
+
+    /**
+     * Hiển thị hoặc cập nhật một hộp thoại chờ.
+     * @param message Tin nhắn hiển thị
+     */
+    public void showWaitingDialog(String message) {
+        if (waitingDialog == null) {
+            waitingDialog = new JDialog(this, "Đang chờ...", false); // false để không block UI
+            JLabel label = new JLabel(message, SwingConstants.CENTER);
+            label.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+            waitingDialog.add(label);
+            waitingDialog.pack();
+            waitingDialog.setLocationRelativeTo(this);
+        }
+        ((JLabel)waitingDialog.getContentPane().getComponent(0)).setText(message);
+        waitingDialog.setVisible(true);
     }
 }
