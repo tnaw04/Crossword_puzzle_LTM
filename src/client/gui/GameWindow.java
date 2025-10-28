@@ -1,6 +1,7 @@
 // src/client/gui/GameWindow.java
 package client.gui;
 
+import client.audio.SoundManager;
 import client.network.Client;
 import server.game.Crossword;
 import server.game.Question;
@@ -24,6 +25,11 @@ public class GameWindow extends JFrame {
     private JButton submitButton;
     private JTextArea chatArea;
     private JTextField chatInputField;
+    private JLabel keywordClueLabel; // Nhãn hiển thị gợi ý từ khóa
+    private JTextField keywordAnswerField; // Trường nhập từ khóa
+    private JButton submitKeywordButton; // Nút gửi từ khóa
+    private boolean keywordPhaseActive = false; // Trạng thái giai đoạn từ khóa
+    private JPanel cardPanel; // Biến thành viên để truy cập trực tiếp
 
     public GameWindow(Client client, Crossword crossword) {
         this.client = client;
@@ -31,7 +37,7 @@ public class GameWindow extends JFrame {
 
         setTitle("Trận Đấu Ô Chữ");
         setSize(1150, 700); // Tăng chiều rộng để chứa khung chat
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE); // Sẽ xử lý đóng cửa sổ khi game over
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
         getContentPane().setBackground(new Color(240, 248, 255)); // Màu Alice Blue nhẹ nhàng
@@ -90,6 +96,24 @@ public class GameWindow extends JFrame {
         notificationLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
         notificationLabel.setForeground(new Color(0, 102, 204));
         bottomPanel.add(notificationLabel, BorderLayout.NORTH);
+
+        // Panel cho Từ khóa (ban đầu ẩn)
+        JPanel keywordPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 5));
+        keywordPanel.setBackground(new Color(240, 248, 255));
+        keywordClueLabel = new JLabel("Từ khóa: ", SwingConstants.CENTER);
+        keywordClueLabel.setFont(new Font("Segoe UI", Font.ITALIC, 14));
+        keywordClueLabel.setForeground(new Color(100, 100, 100));
+        keywordPanel.add(keywordClueLabel);
+
+        keywordAnswerField = new JTextField(20);
+        keywordAnswerField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        keywordAnswerField.setEnabled(false); // Ban đầu vô hiệu hóa
+        keywordPanel.add(keywordAnswerField);
+
+        submitKeywordButton = new JButton("Gửi Từ khóa");
+        styleButton(submitKeywordButton);
+        submitKeywordButton.setEnabled(false); // Ban đầu vô hiệu hóa
+        keywordPanel.add(submitKeywordButton);
         
         // Panel nhập liệu
         JPanel inputPanel = new JPanel(new FlowLayout());
@@ -105,8 +129,13 @@ public class GameWindow extends JFrame {
 
         submitButton = new JButton("Gửi");
         styleButton(submitButton); // Áp dụng style cho nút gửi đáp án
-        inputPanel.add(submitButton, BorderLayout.CENTER);
-        bottomPanel.add(inputPanel, BorderLayout.CENTER);
+        inputPanel.add(submitButton);
+
+        // Sử dụng CardLayout để chuyển đổi giữa inputPanel và keywordPanel
+        cardPanel = new JPanel(new CardLayout()); // Gán cho biến thành viên
+        cardPanel.add(inputPanel, "regularInput");
+        cardPanel.add(keywordPanel, "keywordInput");
+        bottomPanel.add(cardPanel, BorderLayout.CENTER);
 
         // Sự kiện cho nút gửi
         submitButton.addActionListener(e -> submitAnswer());
@@ -116,6 +145,9 @@ public class GameWindow extends JFrame {
         // Sự kiện cho chat
         sendChatButton.addActionListener(e -> sendChatMessage());
         chatInputField.addActionListener(e -> sendChatMessage());
+
+        // Sự kiện cho nút gửi từ khóa
+        submitKeywordButton.addActionListener(e -> submitKeywordAnswer());
 
         add(bottomPanel, BorderLayout.SOUTH);
 
@@ -138,6 +170,7 @@ public class GameWindow extends JFrame {
         gridPanel.removeAll();
 
         // Tạo một mảng tạm để đánh dấu ô nào là ô chữ
+        // Đồng thời đánh dấu các ô thuộc từ khóa
         boolean[][] isLetterCell = new boolean[rows][cols];
         for (Question q : crossword.getQuestions()) {
             int r = q.getRow();
@@ -169,10 +202,20 @@ public class GameWindow extends JFrame {
                     cell.setHorizontalAlignment(JTextField.CENTER);
                     cell.setFont(new Font("Segoe UI", Font.BOLD, 20));
                     cell.setBackground(Color.WHITE);
-                    cell.setForeground(new Color(25, 25, 112)); // Midnight Blue
+                    cell.setForeground(new Color(25, 25, 112)); // Midnight Blue (màu chữ mặc định)
                     cell.setBorder(border);
                     gridPanel.add(cell);
                     cellMap.put(r + "-" + c, cell); // Lưu lại để cập nhật sau
+
+                    // SỬA LỖI: Tìm xem ô (r, c) có thuộc câu hỏi nào là từ khóa không
+                    final int finalR = r;
+                    final int finalC = c;
+                    boolean isKeywordCell = crossword.getQuestions().stream().anyMatch(question -> {
+                        return question.getKeyWordIndex() != null && question.cellIsInQuestion(finalR, finalC);
+                    });
+                    if (isKeywordCell) {
+                        cell.setBackground(new Color(255, 255, 204)); // Màu vàng nhạt
+                    }
                 } else {
                     JPanel blackCell = new JPanel();
                     blackCell.setBackground(new Color(105, 105, 105)); // Màu Dim Gray, hài hòa hơn màu đen
@@ -201,6 +244,10 @@ public class GameWindow extends JFrame {
         cluesArea.setText(sb.toString());
     }
 
+    private CardLayout getCardLayout() {
+        return (CardLayout) cardPanel.getLayout();
+    }
+
     private void submitAnswer() {
         try {
             int questionId = Integer.parseInt(questionIdField.getText().trim());
@@ -211,17 +258,32 @@ public class GameWindow extends JFrame {
                 return;
             }
 
-            // Gửi tin nhắn đến server
-            Object[] payload = {questionId, answer};
-            client.sendMessage(new shared.Message(shared.Message.MessageType.SUBMIT_ANSWER, payload));
+            if (!keywordPhaseActive) {
+                // Gửi tin nhắn đến server
+                Object[] payload = {questionId, answer};
+                client.sendMessage(new shared.Message(shared.Message.MessageType.SUBMIT_ANSWER, payload));
 
-            // Xóa trường nhập liệu sau khi gửi
-            questionIdField.setText("");
-            answerField.setText("");
-            answerField.requestFocus();
+                // Xóa trường nhập liệu sau khi gửi
+                questionIdField.setText("");
+                answerField.setText("");
+                answerField.requestFocus();
+            } else {
+                showNotification("Bạn đang ở giai đoạn từ khóa. Vui lòng gửi từ khóa.");
+            }
 
         } catch (NumberFormatException e) {
             showNotification("Mã câu hỏi phải là một con số.");
+        }
+    }
+
+    private void submitKeywordAnswer() {
+        String keyword = keywordAnswerField.getText().trim().toUpperCase();
+        if (!keyword.isEmpty()) {
+            client.sendMessage(new shared.Message(shared.Message.MessageType.SUBMIT_KEYWORD_ANSWER, keyword));
+            keywordAnswerField.setText(""); // Xóa trường nhập sau khi gửi
+            keywordAnswerField.requestFocus(); // Focus lại vào trường nhập từ khóa
+        } else {
+            showNotification("Vui lòng nhập từ khóa.");
         }
     }
 
@@ -248,6 +310,10 @@ public class GameWindow extends JFrame {
      * @param message Nội dung thông báo
      */
     public void showNotification(String message) {
+        // Nếu là thông báo lỗi, phát âm thanh "sai"
+        if (message.contains("Sai") || message.contains("lượt") || message.contains("tồn tại")) {
+            SoundManager.playSound("wrong.wav");
+        }
         notificationLabel.setText(message);
     }
 
@@ -269,10 +335,32 @@ public class GameWindow extends JFrame {
                     if (cell != null) {
                         cell.setText(String.valueOf(answer.charAt(i)));
                         cell.setEditable(false); // Không cho sửa ô đã đúng
-                        cell.setBackground(new Color(200, 255, 200)); // Màu xanh lá cây nhạt cho ô đúng
+                        // Giữ màu vàng nhạt nếu là ô từ khóa, nếu không thì màu xanh lá cây nhạt
+                        if (question.getKeyWordIndex() == null) {
+                            cell.setBackground(new Color(200, 255, 200)); // Màu xanh lá cây nhạt cho ô đúng
+                        }
                     }
                 }
             });
+    }
+
+    /**
+     * Bắt đầu giai đoạn từ khóa: ẩn input câu hỏi, hiện input từ khóa.
+     * @param keyWordClue Gợi ý từ khóa.
+     */
+    public void startKeywordPhase(String keyWordClue) {
+        keywordPhaseActive = true;
+        showNotification("Tất cả các câu hỏi đã được giải! Hãy tìm từ khóa.");
+
+        // Ẩn input câu hỏi thường
+        getCardLayout().show(cardPanel, "keywordInput");
+
+        // Hiển thị gợi ý từ khóa và kích hoạt input từ khóa
+        keywordClueLabel.setText("Từ khóa: " + keyWordClue);
+        keywordAnswerField.setEnabled(true);
+        submitKeywordButton.setEnabled(true);
+        keywordAnswerField.requestFocus();
+        getRootPane().setDefaultButton(submitKeywordButton); // Thay đổi nút Enter mặc định
     }
 
     /**
@@ -282,6 +370,8 @@ public class GameWindow extends JFrame {
         questionIdField.setEnabled(false);
         answerField.setEnabled(false);
         submitButton.setEnabled(false);
+        keywordAnswerField.setEnabled(false);
+        submitKeywordButton.setEnabled(false);
         chatInputField.setEnabled(false);
     }
 }

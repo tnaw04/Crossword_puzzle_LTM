@@ -59,17 +59,18 @@ public class LoginWindow extends JFrame {
         gbc.gridy = 2;
         gbc.gridwidth = 2; // Nút chiếm 2 cột
         gbc.anchor = GridBagConstraints.CENTER;
-        gbc.fill = GridBagConstraints.NONE; // Không kéo dài nút
-        JButton loginButton = new JButton("Đăng nhập");
-        JButton registerButton = new JButton("Đăng ký");
+        gbc.fill = GridBagConstraints.NONE;
 
         // Panel chứa 2 nút
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
+        JButton loginButton = new JButton("Đăng nhập");
         loginButton.setFont(new Font("Segoe UI", Font.BOLD, 14));
         loginButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        buttonPanel.add(loginButton);
+
+        JButton registerButton = new JButton("Đăng ký");
         registerButton.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         registerButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        buttonPanel.add(loginButton);
         buttonPanel.add(registerButton);
 
         formPanel.add(buttonPanel, gbc);

@@ -37,6 +37,8 @@ public class Message implements Serializable {
         REGISTER_REQUEST,   // Client yêu cầu đăng ký, payload là String[] {username, password}
         SUBMIT_CROSSWORD_CHOICE, // Client gửi lựa chọn, payload là Object[] {Integer chosenCrosswordId, String opponentUsername}
         
+        SUBMIT_KEYWORD_ANSWER, // Client gửi câu trả lời cho từ khóa, payload là String
+        
         // Server -> Client
         LOGIN_SUCCESS,     
         LOGIN_FAILURE,      // Đăng nhập thất bại, payload là String (lý do)
@@ -53,5 +55,8 @@ public class Message implements Serializable {
         REGISTER_FAILURE,   // Đăng ký thất bại, payload là String (lý do),
         REQUEST_CROSSWORD_CHOICE, // Yêu cầu client chọn bộ ô chữ, payload là List<CrosswordInfo>
         WAIT_FOR_CROSSWORD_CHOICE, // Yêu cầu client chờ người kia chọn, payload là String (tên người chọn)
+        KEYWORD_PHASE_START, // Bắt đầu giai đoạn từ khóa, payload là String (gợi ý từ khóa)
+        KEYWORD_CORRECT,     // Từ khóa đúng, payload là String (tên người trả lời đúng)
+        KEYWORD_WRONG,       // Từ khóa sai, payload là String (thông báo lỗi)
     }
 }

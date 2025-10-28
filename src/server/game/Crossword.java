@@ -11,31 +11,39 @@ import java.util.List;
 public class Crossword implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private final int width;
-    private final int height;
-    private final char[][] grid; // Lưới ô chữ, ví dụ: '#' cho ô đen
-    private final List<Question> questions;
+    private int width;
+    private int height;
+    private char[][] grid; // Có thể không cần thiết nếu chỉ lưu câu hỏi
+    private List<Question> questions;
+    private String keyWordClue;
+    private String keyWordAnswer;
 
-    public Crossword(int width, int height, char[][] grid, List<Question> questions) {
+    public Crossword(int width, int height, char[][] grid, List<Question> questions, String keyWordClue, String keyWordAnswer) {
         this.width = width;
         this.height = height;
         this.grid = grid;
         this.questions = questions;
+        this.keyWordClue = keyWordClue;
+        this.keyWordAnswer = keyWordAnswer;
     }
 
-    public int getWidth() {
-        return width;
+    // Getters
+    public int getWidth() { return width; }
+    public int getHeight() { return height; }
+    public List<Question> getQuestions() { return questions; }
+    public String getKeyWordClue() { return keyWordClue; }
+    public String getKeyWordAnswer() { return keyWordAnswer; }
+
+    // Phương thức để kiểm tra xem tất cả các câu hỏi đã được giải chưa
+    public boolean areAllQuestionsAnswered() {
+        return questions.stream().allMatch(Question::isAnswered);
     }
 
-    public int getHeight() {
-        return height;
-    }
-
-    public char[][] getGrid() {
-        return grid;
-    }
-
-    public List<Question> getQuestions() {
-        return questions;
+    // Phương thức để lấy một câu hỏi theo ID
+    public Question getQuestionById(int questionId) {
+        return questions.stream()
+                .filter(q -> q.getId() == questionId)
+                .findFirst()
+                .orElse(null);
     }
 }

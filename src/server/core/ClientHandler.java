@@ -87,6 +87,9 @@ public class ClientHandler implements Runnable {
             case SUBMIT_CROSSWORD_CHOICE:
                 handleCrosswordChoice((Object[]) message.getPayload());
                 break;
+            case SUBMIT_KEYWORD_ANSWER:
+                handleKeywordAnswerSubmission((String) message.getPayload());
+                break;
             // Thêm các case khác ở đây (ví dụ: CHALLENGE_REQUEST, SUBMIT_ANSWER...)
             default:
                 System.out.println("Received unknown message type: " + message.getType());
@@ -175,6 +178,12 @@ public class ClientHandler implements Runnable {
         new Thread(gameSession).start();
     }
 
+    private void handleKeywordAnswerSubmission(String keyword) {
+        if (currentGameSession != null) {
+            currentGameSession.processKeywordAnswer(this, keyword);
+        }
+    }
+
     private void handleAnswerSubmission(Object[] payload) {
         if (currentGameSession != null) {
             Integer questionId = (Integer) payload[0];
@@ -250,7 +259,7 @@ public class ClientHandler implements Runnable {
      * Gửi một tin nhắn đến client này.
      * @param message Tin nhắn cần gửi
      */
-    public void sendMessage(Message message) {
+    public synchronized void sendMessage(Message message) {
         try {
             oos.writeObject(message);
         } catch (IOException e) {

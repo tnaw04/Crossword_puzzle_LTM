@@ -1,12 +1,14 @@
 
 package client.network;
 
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.Socket;
 import java.util.List;
 
 import shared.Message;
 
+// Đổi tên file và di chuyển đến đúng vị trí: src/client/network/ServerListener.java
 public class ServerListener implements Runnable {
     private final Socket socket;
     private final Client client; 
@@ -27,9 +29,10 @@ public class ServerListener implements Runnable {
           
                 processMessage(serverMessage);
             }
-        } catch (Exception e) {
-            System.out.println("Mất kết nối với server. " + e.getMessage());
-          
+        } catch (IOException | ClassNotFoundException e) {
+            // Lỗi xảy ra khi server đóng kết nối hoặc có vấn đề mạng
+            System.out.println("Mất kết nối tới server: " + e.getMessage());
+            // Có thể thêm logic hiển thị thông báo cho người dùng ở đây
         }
     }
 
@@ -99,6 +102,15 @@ public class ServerListener implements Runnable {
                 break;
             case WAIT_FOR_CROSSWORD_CHOICE:
                 client.onWaitForCrosswordChoice((String) message.getPayload());
+                break;
+            case KEYWORD_PHASE_START:
+                client.onKeywordPhaseStart((String) message.getPayload());
+                break;
+            case KEYWORD_CORRECT:
+                client.onKeywordCorrect((String) message.getPayload());
+                break;
+            case KEYWORD_WRONG:
+                client.onAnswerWrong((String) message.getPayload()); // Có thể dùng lại onAnswerWrong
                 break;
             default:
                 System.out.println("Received unknown message from server: " + message.getType());

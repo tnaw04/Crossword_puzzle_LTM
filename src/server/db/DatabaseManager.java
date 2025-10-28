@@ -89,8 +89,8 @@ public class DatabaseManager {
      * @return một đối tượng Crossword hoặc null nếu có lỗi.
      */
     public Crossword getCrosswordById(int crosswordId) {
-        String sql = "SELECT CrosswordID, Theme, GridWidth, GridHeight FROM Crosswords WHERE CrosswordID = ?";
-        String questionSql = "SELECT QuestionID, QuestionText, Answer, PositionRow, PositionCol, Direction FROM Questions WHERE CrosswordID = ?";
+        String sql = "SELECT CrosswordID, Theme, GridWidth, GridHeight, KeyWordClue, KeyWordAnswer FROM Crosswords WHERE CrosswordID = ?";
+        String questionSql = "SELECT QuestionID, QuestionText, Answer, PositionRow, PositionCol, Direction, KeyWordIndex FROM Questions WHERE CrosswordID = ?";
 
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -110,14 +110,17 @@ public class DatabaseManager {
                                     // Chuyển đổi từ tọa độ 1-based (DB) sang 0-based (Java)
                                     qRs.getInt("PositionRow") - 1,
                                     qRs.getInt("PositionCol") - 1,
-                                    qRs.getString("Direction").charAt(0)
+                                    qRs.getString("Direction").charAt(0),
+                                    (Integer) qRs.getObject("KeyWordIndex") // Có thể là NULL
                                 ));
                             }
                         }
                     }
                     int width = rs.getInt("GridWidth");
                     int height = rs.getInt("GridHeight");
-                    return new Crossword(width, height, new char[height][width], questions);
+                    String keyWordClue = rs.getString("KeyWordClue");
+                    String keyWordAnswer = rs.getString("KeyWordAnswer");
+                    return new Crossword(width, height, new char[height][width], questions, keyWordClue, keyWordAnswer);
                 }
             }
         } catch (SQLException e) {
@@ -255,15 +258,32 @@ public class DatabaseManager {
      * @param winnerUsername Tên người thắng (hoặc null nếu hòa)
      */
     public void recordMatch(String p1Username, String p2Username, int p1Score, int p2Score, String winnerUsername) {
-        String sql = "INSERT INTO MatchHistory (Player1Username, Player2Username, Player1Score, Player2Score, WinnerUsername) VALUES (?, ?, ?, ?, ?)";
-        try (Connection conn = connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, p1Username);
-            pstmt.setString(2, p2Username);
-            pstmt.setInt(3, p1Score);
-            pstmt.setInt(4, p2Score);
-            pstmt.setString(5, winnerUsername);
-            pstmt.executeUpdate();
+        // Đổi tên bảng và các cột cho phù hợp với schema mới
+        String sql = "INSERT INTO GameHistory (Player1_UserID, Player2_UserID, Player1_Score, Player2_Score, Winner_UserID) VALUES (?, ?, ?, ?, ?)";
+        try (Connection conn = connect()) {
+            // Lấy UserID từ Username
+            Integer p1Id = getUserIdByUsername(conn, p1Username);
+            Integer p2Id = getUserIdByUsername(conn, p2Username);
+            Integer winnerId = getUserIdByUsername(conn, winnerUsername);
+
+            if (p1Id == null || p2Id == null) {
+                System.err.println("Lỗi khi ghi lịch sử: Không tìm thấy UserID cho người chơi.");
+                return;
+            }
+
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, p1Id);
+                pstmt.setInt(2, p2Id);
+                pstmt.setInt(3, p1Score);
+                pstmt.setInt(4, p2Score);
+                // Xử lý trường hợp hòa (winnerId là null)
+                if (winnerId != null) {
+                    pstmt.setInt(5, winnerId);
+                } else {
+                    pstmt.setNull(5, java.sql.Types.INTEGER);
+                }
+                pstmt.executeUpdate();
+            }
         } catch (SQLException e) {
             System.err.println("Lỗi khi ghi lại lịch sử trận đấu: " + e.getMessage());
         }
@@ -276,7 +296,18 @@ public class DatabaseManager {
      */
     public List<MatchHistoryEntry> getMatchHistory(String username) {
         List<MatchHistoryEntry> history = new ArrayList<>();
-        String sql = "SELECT * FROM MatchHistory WHERE Player1Username = ? OR Player2Username = ? ORDER BY MatchDate DESC";
+        // Câu lệnh SQL mới JOIN 3 bảng để lấy Username từ UserID
+        String sql = "SELECT " +
+                     "   g.GameDate, g.Player1_Score, g.Player2_Score, " +
+                     "   p1.Username AS Player1Username, " +
+                     "   p2.Username AS Player2Username, " +
+                     "   w.Username AS WinnerUsername " +
+                     "FROM GameHistory g " +
+                     "JOIN Users p1 ON g.Player1_UserID = p1.UserID " +
+                     "JOIN Users p2 ON g.Player2_UserID = p2.UserID " +
+                     "LEFT JOIN Users w ON g.Winner_UserID = w.UserID " + // LEFT JOIN vì có thể hòa (Winner_UserID là NULL)
+                     "WHERE p1.Username = ? OR p2.Username = ? " +
+                     "ORDER BY g.GameDate DESC";
 
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -287,9 +318,9 @@ public class DatabaseManager {
                 while (rs.next()) {
                     String p1 = rs.getString("Player1Username");
                     String p2 = rs.getString("Player2Username");
-                    int score1 = rs.getInt("Player1Score");
-                    int score2 = rs.getInt("Player2Score");
-                    String winner = rs.getString("WinnerUsername");
+                    int score1 = rs.getInt("Player1_Score");
+                    int score2 = rs.getInt("Player2_Score");
+                    String winner = rs.getString("WinnerUsername"); // Có thể là null
 
                     boolean isPlayer1 = p1.equals(username);
                     String opponent = isPlayer1 ? p2 : p1;
@@ -297,12 +328,29 @@ public class DatabaseManager {
                     int opponentScore = isPlayer1 ? score2 : score1;
                     String result = (winner == null) ? "Hòa" : (winner.equals(username) ? "Thắng" : "Thua");
 
-                    history.add(new MatchHistoryEntry(opponent, myScore, opponentScore, result, rs.getTimestamp("MatchDate")));
+                    history.add(new MatchHistoryEntry(opponent, myScore, opponentScore, result, rs.getTimestamp("GameDate")));
                 }
             }
         } catch (SQLException e) {
             System.err.println("Lỗi khi lấy lịch sử đấu: " + e.getMessage());
         }
         return history;
+    }
+
+    /**
+     * Phương thức trợ giúp để lấy UserID từ Username.
+     */
+    private Integer getUserIdByUsername(Connection conn, String username) throws SQLException {
+        if (username == null) return null;
+        String sql = "SELECT UserID FROM Users WHERE Username = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, username);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("UserID");
+                }
+            }
+        }
+        return null; // Không tìm thấy user
     }
 }

@@ -78,7 +78,12 @@ public class Client {
 
     public void onLoginFailure(String reason) {
         SwingUtilities.invokeLater(() -> {
-            JOptionPane.showMessageDialog(loginWindow, reason, "Đăng nhập thất bại", JOptionPane.ERROR_MESSAGE);
+            // CẢI TIẾN: Hiển thị lỗi trên cửa sổ đang hoạt động (loginWindow hoặc lobbyWindow)
+            // để xử lý các lỗi xảy ra cả trước và sau khi đăng nhập.
+            Window activeWindow = (loginWindow != null && loginWindow.isVisible()) ? loginWindow : lobbyWindow;
+            if (activeWindow == null) activeWindow = new javax.swing.JFrame(); // Fallback
+
+            JOptionPane.showMessageDialog(activeWindow, reason, "Lỗi", JOptionPane.ERROR_MESSAGE);
         });
     }
 
@@ -118,8 +123,14 @@ public class Client {
         SwingUtilities.invokeLater(() -> {
             JOptionPane.showMessageDialog(
                 lobbyWindow,
-                declinerUsername + " đã từ chối lời mời của bạn.",
-                "Lời mời bị từ chối",
+                // CẢI TIẾN: Phân biệt giữa việc người chơi từ chối và lỗi hệ thống.
+                declinerUsername.startsWith("Lỗi:") 
+                    ? declinerUsername 
+                    : declinerUsername + " đã từ chối lời mời của bạn.",
+                // Tiêu đề cũng thay đổi theo ngữ cảnh.
+                declinerUsername.startsWith("Lỗi:")
+                    ? "Trận đấu bị hủy"
+                    : "Lời mời bị từ chối",
                 JOptionPane.INFORMATION_MESSAGE
             );
         });
@@ -129,7 +140,7 @@ public class Client {
         SwingUtilities.invokeLater(() -> {
             if (lobbyWindow != null) {
                 lobbyWindow.hideWaitingDialog(); // Ẩn hộp thoại chờ
-                lobbyWindow.dispose(); // Đóng cửa sổ sảnh chờ
+                lobbyWindow.setVisible(false); // Chỉ ẩn đi, không hủy
             }
             gameWindow = new GameWindow(this, crossword); // Tạo cửa sổ game mới
             gameWindow.setVisible(true);
@@ -176,9 +187,11 @@ public class Client {
                 gameWindow.dispose();
                 gameWindow = null;
 
-                lobbyWindow = new LobbyWindow(this);
-                lobbyWindow.setVisible(true);
+                // Hiển thị lại cửa sổ sảnh chờ đã có
+                lobbyWindow.setVisible(true); 
+                // Yêu cầu cập nhật lại danh sách người dùng và bảng xếp hạng khi quay lại sảnh
                 sendMessage(new Message(Message.MessageType.REQUEST_USER_LIST, null));
+                sendMessage(new Message(Message.MessageType.REQUEST_LEADERBOARD, null));
             }
         });
     }
@@ -259,6 +272,31 @@ public class Client {
         SwingUtilities.invokeLater(() -> {
             if (lobbyWindow != null) {
                 lobbyWindow.showWaitingDialog("Đối thủ " + chooserUsername + " đang chọn bộ câu hỏi. Vui lòng chờ...");
+            }
+        });
+    }
+
+    /**
+     * Được gọi khi server thông báo bắt đầu giai đoạn từ khóa.
+     * @param keyWordClue Gợi ý cho từ khóa.
+     */
+    public void onKeywordPhaseStart(String keyWordClue) {
+        SwingUtilities.invokeLater(() -> {
+            if (gameWindow != null) {
+                gameWindow.startKeywordPhase(keyWordClue);
+            }
+        });
+    }
+
+    /**
+     * Được gọi khi một người chơi trả lời đúng từ khóa.
+     * @param winnerUsername Tên người chơi trả lời đúng.
+     */
+    public void onKeywordCorrect(String winnerUsername) {
+        SwingUtilities.invokeLater(() -> {
+            if (gameWindow != null) {
+                gameWindow.showNotification(winnerUsername + " đã trả lời đúng từ khóa!");
+                gameWindow.disableInputs(); // Vô hiệu hóa input vì game sắp kết thúc
             }
         });
     }

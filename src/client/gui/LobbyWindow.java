@@ -22,7 +22,7 @@ public class LobbyWindow extends JFrame {
 
         setTitle("Sảnh Chờ");
         setSize(500, 600);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); // Đảm bảo chương trình thoát khi đóng sảnh
         setLocationRelativeTo(null);
         setLayout(new GridLayout(1, 2, 10, 10)); // Chia làm 2 cột
 
