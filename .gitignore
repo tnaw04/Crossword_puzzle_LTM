@@ -1,0 +1,13 @@
+# Compiled Java class files
+*.class
+
+# Log files
+*.log
+
+# Build output directories
+/bin/
+/out/
+
+# IDE configuration files (IntelliJ)
+.idea/
+*.iml
