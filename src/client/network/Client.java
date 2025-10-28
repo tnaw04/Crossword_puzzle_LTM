@@ -128,6 +128,7 @@ public class Client {
     public void onGameStart(server.game.Crossword crossword) {
         SwingUtilities.invokeLater(() -> {
             if (lobbyWindow != null) {
+                lobbyWindow.hideWaitingDialog(); // Ẩn hộp thoại chờ
                 lobbyWindow.dispose(); // Đóng cửa sổ sảnh chờ
             }
             gameWindow = new GameWindow(this, crossword); // Tạo cửa sổ game mới

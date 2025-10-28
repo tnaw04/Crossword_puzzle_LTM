@@ -8,7 +8,6 @@ import java.net.Socket;
 
 import server.db.DatabaseManager;
 import server.game.GameSession;
-import shared.CrosswordInfo;
 import shared.Message;
 
 public class ClientHandler implements Runnable {
@@ -117,6 +116,7 @@ public class ClientHandler implements Runnable {
         if ("ACCEPT".equals(response)) {
             System.out.println("SERVER: " + this.username + " accepted challenge from " + challengerUsername);
             // Tung đồng xu để quyết định ai chọn bộ câu hỏi
+            System.out.println("SERVER: Tossing coin for crossword choice between " + this.username + " and " + challengerUsername + "...");
             ClientHandler chooser = (Math.random() < 0.5) ? this : challengerHandler;
             ClientHandler waiter = (chooser == this) ? challengerHandler : this;
 
@@ -124,13 +124,16 @@ public class ClientHandler implements Runnable {
             var availableCrosswords = dbManager.getAvailableCrosswords();
 
             if (availableCrosswords == null || availableCrosswords.isEmpty()) {
+                System.err.println("SERVER ERROR: No crosswords found in database for choice. Cancelling game.");
                 // Xử lý lỗi nếu không có bộ câu hỏi nào
-                sendMessage(new Message(Message.MessageType.LOGIN_FAILURE, "Lỗi: Không tìm thấy bộ câu hỏi nào."));
-                challengerHandler.sendMessage(new Message(Message.MessageType.LOGIN_FAILURE, "Lỗi: Không tìm thấy bộ câu hỏi nào."));
+                // Gửi thông báo từ chối để client xử lý hiển thị lỗi trên lobbyWindow
+                sendMessage(new Message(Message.MessageType.CHALLENGE_DECLINED, "Lỗi: Không tìm thấy bộ câu hỏi nào. Trận đấu bị hủy."));
+                challengerHandler.sendMessage(new Message(Message.MessageType.CHALLENGE_DECLINED, "Lỗi: Không tìm thấy bộ câu hỏi nào. Trận đấu bị hủy."));
                 return;
             }
 
             // Gửi yêu cầu chọn cho người được chọn và yêu cầu chờ cho người còn lại
+            System.out.println("SERVER: " + chooser.getUsername() + " is choosing crossword. " + waiter.getUsername() + " is waiting.");
             chooser.sendMessage(new Message(Message.MessageType.REQUEST_CROSSWORD_CHOICE, new Object[]{availableCrosswords, waiter.getUsername()}));
             waiter.sendMessage(new Message(Message.MessageType.WAIT_FOR_CROSSWORD_CHOICE, chooser.getUsername()));
         } else {
@@ -155,7 +158,7 @@ public class ClientHandler implements Runnable {
         if (chosenCrosswordId == -1) {
             System.out.println("SERVER: " + this.username + " đã hủy việc chọn bộ câu hỏi.");
             // Thông báo cho cả hai người chơi rằng trận đấu đã bị hủy
-            Message cancelMessage = new Message(Message.MessageType.LOGIN_FAILURE, "Trận đấu đã bị hủy do người chọn không đưa ra quyết định.");
+            Message cancelMessage = new Message(Message.MessageType.CHALLENGE_DECLINED, "Trận đấu đã bị hủy do người chọn không đưa ra quyết định.");
             this.sendMessage(cancelMessage);
             opponentHandler.sendMessage(cancelMessage);
             return;

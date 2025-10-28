@@ -127,4 +127,13 @@ public class LobbyWindow extends JFrame {
         ((JLabel)waitingDialog.getContentPane().getComponent(0)).setText(message);
         waitingDialog.setVisible(true);
     }
+
+    /**
+     * Ẩn hộp thoại chờ nếu nó đang hiển thị.
+     */
+    public void hideWaitingDialog() {
+        if (waitingDialog != null) {
+            waitingDialog.setVisible(false);
+        }
+    }
 }
