@@ -145,13 +145,28 @@ public class ClientHandler implements Runnable {
         String opponentUsername = (String) payload[1];
 
         ClientHandler opponentHandler = server.getClientHandler(opponentUsername);
+
         if (opponentHandler == null) {
             sendMessage(new Message(Message.MessageType.LOGIN_FAILURE, "Đối thủ đã thoát."));
             return;
         }
 
-        // Tạo GameSession với bộ câu hỏi đã chọn và bắt đầu game
-        GameSession gameSession = new GameSession(this, opponentHandler, dbManager, chosenCrosswordId);
+        // Xử lý trường hợp người chơi đóng hộp thoại lựa chọn (hủy trận)
+        if (chosenCrosswordId == -1) {
+            System.out.println("SERVER: " + this.username + " đã hủy việc chọn bộ câu hỏi.");
+            // Thông báo cho cả hai người chơi rằng trận đấu đã bị hủy
+            Message cancelMessage = new Message(Message.MessageType.LOGIN_FAILURE, "Trận đấu đã bị hủy do người chọn không đưa ra quyết định.");
+            this.sendMessage(cancelMessage);
+            opponentHandler.sendMessage(cancelMessage);
+            return;
+        }
+
+        // Xác định lại vai trò challenger/challenged để truyền vào GameSession một cách nhất quán
+        // Giả sử người gửi lựa chọn (this) là người được thách đấu (challenged)
+        // và người chờ (opponentHandler) là người thách đấu (challenger)
+        // Điều này cần được xem xét lại nếu logic thách đấu phức tạp hơn.
+        // Trong kịch bản hiện tại, `this` là người chọn, `opponent` là người chờ.
+        GameSession gameSession = new GameSession(opponentHandler, this, dbManager, chosenCrosswordId);
         this.setGameSession(gameSession);
         opponentHandler.setGameSession(gameSession);
         new Thread(gameSession).start();

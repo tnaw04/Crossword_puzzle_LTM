@@ -35,7 +35,7 @@ public class Message implements Serializable {
         REQUEST_LEADERBOARD, // Client yêu cầu bảng xếp hạng
         REQUEST_MATCH_HISTORY, // Client yêu cầu lịch sử đấu
         REGISTER_REQUEST,   // Client yêu cầu đăng ký, payload là String[] {username, password}
-        SUBMIT_CROSSWORD_CHOICE, // Client gửi ID bộ ô chữ đã chọn, payload là Integer
+        SUBMIT_CROSSWORD_CHOICE, // Client gửi lựa chọn, payload là Object[] {Integer chosenCrosswordId, String opponentUsername}
         
         // Server -> Client
         LOGIN_SUCCESS,     
